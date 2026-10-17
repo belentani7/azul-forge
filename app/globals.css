@@ -1,0 +1,225 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Paleta AZUL FORGE (spec §15) */
+  --azul-profundo: #031425;
+  --azul-noche: #071e33;
+  --azul-electrico: #2d7dff;
+  --cian-suave: #66e0ff;
+  --blanco-hielo: #f2f8ff;
+  --gris-neblina: #9db2c7;
+  --verde-exito: #3ddc97;
+  --amarillo-advertencia: #ffc857;
+  --rojo-error: #ff6b6b;
+
+  --bg: var(--azul-profundo);
+  --bg-2: var(--azul-noche);
+  --ink: var(--blanco-hielo);
+  --muted: var(--gris-neblina);
+  --accent: var(--azul-electrico);
+  --accent-alt: var(--cian-suave);
+  --border: rgba(157, 178, 199, 0.16);
+  --glow: rgba(45, 125, 255, 0.22);
+
+  --font-display: 'Space Grotesk Variable', 'Space Grotesk', system-ui, sans-serif;
+  --font-ui: 'Inter Variable', 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+.display {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+}
+
+code,
+pre,
+.mono {
+  font-family: var(--font-mono);
+}
+
+::selection {
+  background: var(--glow);
+  color: var(--blanco-hielo);
+}
+
+/* Capas translúcidas y bordes finos (spec §15.3) */
+@layer components {
+  .container-forge {
+    @apply mx-auto w-full max-w-6xl px-5 sm:px-8;
+  }
+
+  .section {
+    @apply py-16 sm:py-24;
+  }
+
+  .card-forge {
+    background: rgba(7, 30, 51, 0.62);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    box-shadow: 0 22px 60px rgba(2, 10, 20, 0.35);
+  }
+
+  .glow-border {
+    border: 1px solid rgba(45, 125, 255, 0.35);
+    box-shadow: 0 0 0 1px rgba(102, 224, 255, 0.08), 0 18px 50px var(--glow);
+  }
+
+  .btn-forge {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2;
+    background: var(--azul-electrico);
+    color: var(--blanco-hielo);
+  }
+
+  .btn-forge:hover {
+    background: #4a90ff;
+    color: var(--blanco-hielo);
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2;
+    background: transparent;
+    color: var(--blanco-hielo);
+    border: 1px solid var(--border);
+  }
+
+  .btn-ghost:hover {
+    border-color: var(--cian-suave);
+    color: var(--cian-suave);
+    background: transparent;
+  }
+
+  .input-forge {
+    @apply w-full rounded-xl px-4 py-2.5 text-sm outline-none transition-colors duration-200;
+    background: rgba(3, 20, 37, 0.7);
+    border: 1px solid var(--border);
+    color: var(--ink);
+  }
+
+  .input-forge:focus {
+    border-color: var(--azul-electrico);
+    box-shadow: 0 0 0 3px var(--glow);
+  }
+
+  .input-forge[aria-invalid='true'] {
+    border-color: var(--rojo-error);
+  }
+
+  .label-forge {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wider;
+    color: var(--gris-neblina);
+  }
+
+  .badge-forge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium;
+    border: 1px solid var(--border);
+    color: var(--gris-neblina);
+    background: rgba(7, 30, 51, 0.5);
+  }
+
+  .code-surface {
+    background: #02101c;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+}
+
+/* Blue Field — fondo generativo (spec §15.3) */
+.blue-field {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.blue-field::before {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  background:
+    radial-gradient(720px 520px at 12% -8%, rgba(45, 125, 255, 0.2), transparent 68%),
+    radial-gradient(820px 560px at 108% 18%, rgba(102, 224, 255, 0.12), transparent 70%),
+    radial-gradient(900px 700px at 50% 118%, rgba(45, 125, 255, 0.12), transparent 72%);
+  animation: blue-field-drift 38s ease-in-out infinite alternate;
+}
+
+.blue-field::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(102, 224, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(102, 224, 255, 0.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at 50% 0%, black 25%, transparent 78%);
+}
+
+@keyframes blue-field-drift {
+  0% {
+    transform: translate3d(-1.5%, -1%, 0) rotate(-0.6deg) scale(1);
+  }
+  100% {
+    transform: translate3d(1.5%, 1.5%, 0) rotate(0.6deg) scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blue-field::before {
+    animation: none;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Barra de desplazamiento sutil en paneles de código */
+.thin-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: rgba(157, 178, 199, 0.25);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+.thin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cm-editor {
+  font-size: 13px;
+  background: transparent !important;
+}
+
+.cm-editor .cm-gutters {
+  background: transparent !important;
+  border-right: 1px solid var(--border);
+}
+
+.cm-editor.cm-focused {
+  outline: none !important;
+}
