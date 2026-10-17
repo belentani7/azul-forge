@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+dist/
+coverage/
+.vercel/
+.research/
+google_drive/
+.artifacts/
+*.tsbuildinfo
+.env*
+!.env.example
+.DS_Store
+npm-debug.log*
