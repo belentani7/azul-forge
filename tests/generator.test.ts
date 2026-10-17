@@ -1,119 +1,100 @@
-import { describe, expect, it } from 'vitest';
-import { composeProject } from '@/lib/generator/composer';
-import { renderProject } from '@/lib/generator/renderer';
-import { evaluateProject } from '@/lib/quality/engine';
-import { DEFAULT_INPUT } from '@/lib/validations';
-import type { ProjectInput } from '@/lib/types';
+import { describe, expect, it } from "vitest";
+import JSZip from "jszip";
+import { projectSchema } from "@/lib/generator/schema";
+import { slugify, composeProject } from "@/lib/generator/composer";
+import { createProject } from "@/lib/generator/project";
+import { renderPreviewHtml } from "@/lib/generator/preview";
+import { buildZip } from "@/lib/generator/zip";
+import { validInput } from "./fixtures";
 
-function build(input: Partial<ProjectInput> = {}) {
-  const full: ProjectInput = {
-    ...DEFAULT_INPUT,
-    ...input,
-    features: { ...DEFAULT_INPUT.features, ...input.features },
-  };
-  return renderProject(composeProject(full));
-}
-
-describe('composer + renderer', () => {
-  it('genera un proyecto determinista', () => {
-    const a = build({ name: 'Estudio Determinista' });
-    const b = build({ name: 'Estudio Determinista' });
-    const pathsA = a.files.map((file) => file.path).join(',');
-    const pathsB = b.files.map((file) => file.path).join(',');
-    expect(pathsA).toBe(pathsB);
-    expect(a.manifest.seed).toBe(b.manifest.seed);
-    expect(a.manifest.slug).toBe('estudio-determinista');
+describe("validación y composición", () => {
+  it("acepta una configuración explícita y rechaza propiedades no admitidas", () => {
+    expect(projectSchema.safeParse(validInput).success).toBe(true);
+    expect(projectSchema.safeParse({ ...validInput, token: "secret" }).success).toBe(false);
+    expect(projectSchema.safeParse({ ...validInput, template: "untrusted" }).success).toBe(false);
   });
 
-  it('incluye la estructura base obligatoria', () => {
-    const project = build();
-    const paths = project.files.map((file) => file.path);
-    for (const required of [
-      'README.md',
-      'LICENSE',
-      'package.json',
-      'tsconfig.json',
-      'next.config.mjs',
-      '.gitignore',
-      '.env.example',
-      'app/layout.tsx',
-      'app/page.tsx',
-      'app/globals.css',
-      'app/api/health/route.ts',
-      'app/api/content/route.ts',
-      'lib/types.ts',
-      'lib/utils.ts',
-      'lib/data.ts',
-      'components',
-      'tests/lib/utils.test.ts',
-      '.github/workflows/ci.yml',
-      'docs/ARQUITECTURA.md',
-      'docs/ACCESIBILIDAD.md',
-      'docs/DESPLIEGUE.md',
-      'preview.html',
-    ]) {
-      if (required === 'components') {
-        expect(paths.some((path) => path.startsWith('components/'))).toBe(true);
-      } else {
-        expect(paths).toContain(required);
-      }
-    }
+  it("rechaza HTML, controles y nombres o descripciones excesivos", () => {
+    expect(projectSchema.safeParse({ ...validInput, name: "<script>alert(1)</script>" }).success).toBe(false);
+    expect(projectSchema.safeParse({ ...validInput, description: "Hola\nMundo <img>" }).success).toBe(false);
+    expect(projectSchema.safeParse({ ...validInput, description: "a".repeat(321) }).success).toBe(false);
   });
 
-  it('cada plantilla genera sus componentes propios', () => {
-    const gallery = build({ templateId: 'visual-gallery', name: 'Galería Prueba' });
-    expect(gallery.fileMap['components/ExhibitionFilter.tsx']).toBeTruthy();
-    expect(gallery.fileMap['components/ExhibitionFilter.tsx']).toContain("'use client'");
-
-    const dashboard = build({ templateId: 'creative-dashboard', name: 'Panel Prueba' });
-    expect(dashboard.fileMap['components/MetricCards.tsx']).toBeTruthy();
-    expect(dashboard.fileMap['components/ProjectTable.tsx']).toContain('<table');
+  it("crea slugs seguros, acotados y estables sin usar una ruta suministrada", () => {
+    expect(slugify("Áurea & Ciudad 3D")).toBe("aurea-ciudad-3d");
+    expect(slugify("../../etc/passwd")).toBe("etc-passwd");
+    expect(slugify("CON")).toBe("proyecto-con");
+    expect(slugify("東京")).toMatch(/^proyecto-[a-f0-9]{8}$/);
+    expect(slugify("a".repeat(100))).toHaveLength(48);
   });
 
-  it('respeta las features desactivadas', () => {
-    const project = build({
-      features: { tests: false, ci: false, docs: false, darkMode: false, generativeBackground: false },
-      name: 'Proyecto Minimal',
-    });
-    const paths = project.files.map((file) => file.path);
-    expect(paths).not.toContain('.github/workflows/ci.yml');
-    expect(paths).not.toContain('tests/lib/utils.test.ts');
-    expect(project.fileMap['components/BlueField.tsx']).toBeUndefined();
-    expect(project.fileMap['app/layout.tsx']).not.toContain('dangerouslySetInnerHTML');
-  });
-
-  it('el preview.html es autocontenido', () => {
-    const project = build();
-    expect(project.previewHtml).toContain('<!DOCTYPE html>');
-    expect(project.previewHtml).toContain(project.manifest.name);
-    expect(project.previewHtml).toContain('lang="es"');
-    expect(project.previewHtml).not.toContain('http://');
+  it("compone un manifiesto determinista para las mismas entradas", () => {
+    const one = composeProject(validInput);
+    const two = composeProject(validInput);
+    expect(one).toEqual(two);
+    expect(one.id).toMatch(/^proj_[a-f0-9]{16}$/);
+    expect(one.slug).toBe("museo-azul");
   });
 });
 
-describe('quality engine', () => {
-  it('puntúa 100 un proyecto completo', () => {
-    const project = build();
-    const report = evaluateProject(project);
-    expect(report.score).toBe(100);
-    expect(report.checks.every((check) => check.passed)).toBe(true);
-  });
+describe("generación de código y controles", () => {
+  it.each(["art-portfolio", "visual-gallery", "creative-dashboard"] as const)(
+    "genera una app real y diferente para %s",
+    (template) => {
+      const project = createProject({ ...validInput, template });
+      const paths = project.files.map((file) => file.path);
+      expect(paths).toEqual(expect.arrayContaining([
+        "package.json", "package-lock.json", "README.md", "LICENSE", ".gitignore",
+        ".env.example", "tsconfig.json", "eslint.config.mjs", "app/layout.tsx",
+        "app/page.tsx", "app/globals.css", "app/api/health/route.ts",
+        "app/api/content/route.ts", "lib/content.ts", "public/favicon.svg"
+      ]));
+      expect(new Set(paths).size).toBe(paths.length);
+      expect(project.files.find((file) => file.path === "app/page.tsx")?.content).toContain(
+        template === "creative-dashboard" ? "CreativeBoard" : "works"
+      );
+      expect(project.files.find((file) => file.path === "app/api/content/route.ts")?.content).toContain("NextResponse.json");
+      expect(project.quality.checks.every((check) => check.passed || !check.applicable)).toBe(true);
+      expect(project.quality.score).toBe(100);
+      expect(project.previewHtml).toContain("Museo Azul");
+      expect(project.previewHtml).toContain("Una galería digital");
+    }
+  );
 
-  it('baja la nota sin tests ni CI', () => {
-    const project = build({
-      features: { tests: false, ci: false, docs: true, darkMode: true, generativeBackground: true },
+  it("las opciones cambian los archivos, dependencias y controles, sin fingir tests", () => {
+    const project = createProject({
+      ...validInput,
+      features: { ...validInput.features, tests: false, ci: false, docs: false }
     });
-    const report = evaluateProject(project);
-    expect(report.score).toBeLessThan(85);
-    expect(report.recommendations.length).toBeGreaterThan(0);
-    expect(report.checks.find((check) => check.id === 'tests')?.passed).toBe(false);
+    const paths = project.files.map((file) => file.path);
+    expect(paths.some((path) => path.startsWith("tests/") || path.startsWith("docs/") || path.startsWith(".github/"))).toBe(false);
+    expect(JSON.parse(project.files.find((file) => file.path === "package.json")!.content).scripts.test).toBeUndefined();
+    expect(project.quality.checks.find((check) => check.id === "tests")?.applicable).toBe(false);
+    expect(project.quality.score).toBe(100);
   });
 
-  it('marca accesibilidad y SEO', () => {
-    const project = build();
-    const report = evaluateProject(project);
-    const ids = report.checks.map((check) => check.id);
-    expect(ids).toContain('seo-meta');
-    expect(ids).toContain('a11y-skip');
+  it("no inventa obras ni estadísticas: la colección comienza vacía", () => {
+    const project = createProject(validInput);
+    expect(project.files.find((file) => file.path === "lib/content.ts")?.content).toContain("works: Work[] = []");
+    expect(project.previewHtml).toContain("Sin obras todavía");
+    expect(project.quality.method).toContain("automátic");
+  });
+
+  it("escapa valores incluso si se invoca la vista fuera del validador", () => {
+    const manifest = composeProject(validInput);
+    const html = renderPreviewHtml({ ...manifest, description: "<script>alert('x')</script>" });
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).not.toContain("src=\"http");
+  });
+
+  it("empaqueta exactamente los archivos bajo un único directorio seguro", async () => {
+    const project = createProject(validInput);
+    const archive = await JSZip.loadAsync(await buildZip(project.files, project.manifest.slug));
+    const entries = Object.keys(archive.files).filter((path) => !archive.files[path].dir);
+    expect(entries).toHaveLength(project.files.length);
+    expect(entries.every((entry) => entry.startsWith("museo-azul/") && !entry.includes("../"))).toBe(true);
+    expect(await archive.file("museo-azul/README.md")?.async("string")).toContain("Museo Azul");
+    await expect(buildZip([{ path: "../escape", content: "x", language: "text" }], "museo-azul")).rejects.toThrow();
   });
 });

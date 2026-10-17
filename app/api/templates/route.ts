@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
-import { TEMPLATES } from '@/lib/templates/registry';
+import { NextResponse } from "next/server";
+import { templates } from "@/lib/generator/templates";
 
 export function GET() {
-  return NextResponse.json({ templates: TEMPLATES });
+  return NextResponse.json({ templates },
+    { headers: { "Cache-Control": "public, max-age=3600" } });
 }

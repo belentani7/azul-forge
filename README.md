@@ -1,89 +1,70 @@
 # AZUL FORGE
 
-**Generador de proyectos web con calidad de producción.**
+Un estudio local-first que convierte una configuración creativa en **código Next.js exportable**. Parte de [`aaa.txt`](./aaa.txt), la especificación original; el ZIP inicial en Drive contenía solo ese archivo, no una aplicación previa.
 
-AZUL FORGE transforma una descripción en una aplicación Next.js real: TypeScript estricto,
-tests, CI de GitHub Actions, documentación, calidad verificada (0–100) y un `.zip` listo para
-GitHub y Vercel. Sin plantillas vacías: el código generado es el producto.
+## Qué funciona
 
----
+- Tres bases distintas: **portfolio artístico**, **galería visual** y **tablero creativo**.
+- Configuración de identidad, paleta, modo claro/oscuro y módulos opcionales de tests, CI y documentación.
+- Generación y validación en el servidor; explorador de archivos, vista de diseño aislada y exportación ZIP.
+- Cada ZIP incluye `package-lock.json`, rutas `/api/health` y `/api/content`, instrucciones y un proyecto instalable con `npm ci`. El tablero permite crear, completar y borrar tareas guardadas en **localStorage**, sin pretender que exista persistencia remota.
+- Las colecciones comienzan vacías. No se atribuyen obras, clientes ni estadísticas ficticias.
 
-## Propósito
+## Desarrollo
 
-Llevar un proyecto desde la idea hasta un repositorio publicable en cuatro pasos:
-
-1. **Describe** tu proyecto (nombre, descripción, autor, plantilla, tema).
-2. **Genera** el código con estructura profesional de estudio.
-3. **Verifica** la calidad con el informe 0–100 (documentación, tests, CI, SEO, accesibilidad).
-4. **Exporta** el `.zip`, súbelo a GitHub y despliega en Vercel.
-
-## Características
-
-- **3 plantillas reales**: Portfolio artístico, Galería visual, Dashboard creativo.
-- **5 temas curados**: Deep Blue (identidad AZUL FORGE), Obsidian, Aurora, Ember, Paper.
-- **Generación determinista**: mismo slug ⇒ mismo seed ⇒ mismos archivos.
-- **Código generado real**: Next.js App Router, Route Handlers, Vitest, CI, docs/.
-- **Motor de calidad**: checklist con puntuación 0–100 y recomendaciones accionables.
-- **Exportación .zip** por cliente (JSZip) y por API (`POST /api/projects/:id/export`).
-- **Estudio (studio)**: formulario con borradores locales, árbol de archivos, visor de
-  código con resaltado y búsqueda, vista previa en vivo, panel de calidad e instrucciones
-  de publicación en GitHub/Vercel.
-
-## Instalación y ejecución
+Requiere Node.js 22.13+ y npm.
 
 ```bash
-npm install
-npm run dev        # http://localhost:3000
+npm ci
+npm run dev
 ```
 
-## Scripts
+Abre `http://localhost:3000`. Para verificar el estudio:
 
-| Script              | Descripción                                      |
-| ------------------- | ------------------------------------------------ |
-| `npm run dev`       | Servidor de desarrollo                           |
-| `npm run build`     | Build de producción                              |
-| `npm start`         | Arranca el build de producción                   |
-| `npm run lint`      | ESLint                                           |
-| `npm run type-check`| TypeScript sin emitir                            |
-| `npm test`          | Vitest (motor + UI)                              |
-| `npm run ci`        | lint + type-check + test + build                 |
+```bash
+npm run verify
+```
+
+`verify` ejecuta ESLint, TypeScript, Vitest y el build de producción. Las pruebas HTTP, los ZIP exportados y las tres apps generadas también se comprobaron mediante instalación, tests y compilación independientes. Para actualizar las dependencias fijadas de los proyectos exportados tras cambiar `lib/generator/versions.ts`:
+
+```bash
+node --experimental-strip-types scripts/refresh-lockfiles.mjs
+```
 
 ## API
 
-| Método | Ruta                       | Descripción                                   |
-| ------ | -------------------------- | --------------------------------------------- |
-| GET    | `/api/health`              | Estado, versión y nº de plantillas            |
-| GET    | `/api/templates`           | Catálogo de plantillas                        |
-| GET    | `/api/templates/:id`       | Detalle de una plantilla                      |
-| POST   | `/api/projects/generate`   | Genera proyecto → id, archivos, qualityScore  |
-| POST   | `/api/projects/validate`   | Valida la entrada sin generar                 |
-| GET    | `/api/projects/:id`        | Recupera un proyecto generado                 |
-| POST   | `/api/projects/:id/export` | Descarga el proyecto como `.zip`              |
+| Ruta | Método | Función |
+| --- | --- | --- |
+| `/api/health` | GET | Salud del estudio |
+| `/api/templates` | GET | Catálogo de bases |
+| `/api/templates/:slug` | GET | Detalle de una base |
+| `/api/projects/generate` | POST | Manifiesto, archivos, vista y controles |
+| `/api/projects/validate` | POST | Controles de la configuración |
+| `/api/projects/export` | POST | ZIP de la configuración |
 
-## Estructura
+Los tres POST aceptan `application/json` con este contrato (máximo 16 KB):
 
+```json
+{
+  "name": "Museo Azul",
+  "description": "Un archivo de obras originales con contexto editorial.",
+  "author": "Equipo Museo Azul",
+  "template": "visual-gallery",
+  "theme": "nocturne",
+  "features": {
+    "darkMode": true,
+    "generative": true,
+    "tests": true,
+    "ci": true,
+    "docs": true
+  }
+}
 ```
-app/                  # Landing + estudio + rutas API (App Router)
-components/           # landing · studio · ui
-lib/
-  generator/          # composer · renderer (preview.html) · archivos base
-  templates/          # registro + constructores por plantilla
-  quality/            # motor de calidad 0–100
-  zip/                # exportador JSZip
-  validations.ts      # esquemas Zod
-  themes.ts           # 5 temas curados
-tests/                # Vitest (motor de generación + UI)
-docs/                 # guías del proyecto
-```
 
-## Despliegue (Vercel)
+`theme` admite `nocturne`, `cerulean` y `paper`. `template` admite `art-portfolio`, `visual-gallery` y `creative-dashboard`. Las peticiones inválidas devuelven errores por campo; la exportación nunca evalúa código suministrado por el cliente.
 
-1. Sube este repositorio a GitHub.
-2. En [vercel.com/new](https://vercel.com/new) importa el repo.
-3. Framework **Next.js** detectado automáticamente → **Deploy**.
+## Arquitectura y límites
 
-El workflow `.github/workflows/ci.yml` ejecuta lint, type-check, tests y build en cada push.
+App Router, TypeScript, Zod, JSZip y Vitest. La fuente generadora está en `lib/generator/`, la UI en `components/forge-studio.tsx`, y los Route Handlers en `app/api/`. El borrador del estudio permanece en el navegador. La vista previa es un iframe **sin scripts ni acceso al origen**: representa el diseño, no ejecuta el proyecto generado. El índice de calidad verifica estructura y contraste principal, **no certifica** accesibilidad, seguridad ni comportamiento con contenido añadido después.
 
-## Licencia
-
-MIT — ver [LICENSE](./LICENSE).
+Vercel u otro hosting compatible con Next.js puede ejecutar estudio y aplicaciones exportadas. **GitHub Pages no ejecuta Route Handlers**; publicar solo estáticos allí eliminaría el backend. Consulta [`docs/PRODUCTO.md`](./docs/PRODUCTO.md) para el alcance y criterios de aceptación.

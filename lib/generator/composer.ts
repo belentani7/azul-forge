@@ -1,59 +1,22 @@
-import type { ComposedProject, ProjectInput, ThemeDef } from '@/lib/types';
-import { hashSeed, slugify, uuid } from '@/lib/utils';
-import { DEFAULT_THEME, getTheme } from '@/lib/themes';
-import { TEMPLATES, getTemplate } from '@/lib/templates/registry';
-import { buildBaseFiles } from '@/lib/generator/files-base';
-import { buildArtPortfolioFiles } from '@/lib/templates/art-portfolio';
-import { buildVisualGalleryFiles } from '@/lib/templates/visual-gallery';
-import { buildCreativeDashboardFiles } from '@/lib/templates/creative-dashboard';
-import type { GeneratedFile } from '@/lib/types';
+import { createHash } from "node:crypto";
+import type { ProjectInput } from "./schema";
+import { getTemplate } from "./templates";
+import type { ProjectManifest } from "./types";
 
-function templateFiles(templateId: string, manifest: ComposedProject['manifest'], theme: ThemeDef): GeneratedFile[] {
-  switch (templateId) {
-    case 'visual-gallery':
-      return buildVisualGalleryFiles(manifest, theme);
-    case 'creative-dashboard':
-      return buildCreativeDashboardFiles(manifest, theme);
-    case 'art-portfolio':
-    default:
-      return buildArtPortfolioFiles(manifest, theme);
-  }
+const reservedNames = new Set(["con", "prn", "aux", "nul", "com1", "com2", "lpt1", "lpt2"]);
+
+export function slugify(value: string): string {
+  const slug = value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
+    .slice(0, 48).replace(/-+$/g, "");
+  if (!slug) return `proyecto-${createHash("sha256").update(value).digest("hex").slice(0, 8)}`;
+  return reservedNames.has(slug) ? `proyecto-${slug}` : slug;
 }
 
-/**
- * Composer (Fase 2/3): convierte la entrada del formulario en un proyecto
- * determinista — mismo slug ⇒ mismo seed ⇒ mismos archivos.
- */
-export function composeProject(input: ProjectInput): ComposedProject {
-  const template = getTemplate(input.templateId) ?? TEMPLATES[0]!;
-  const theme: ThemeDef = getTheme(input.themeId) ?? DEFAULT_THEME;
-
-  const slug = slugify(input.name);
-  const seed = hashSeed(`${slug}:${template.id}:${theme.id}`);
-
-  const manifest: ComposedProject['manifest'] = {
-    id: uuid(),
-    slug,
-    name: input.name.trim(),
-    description: input.description.trim(),
-    author: input.author.trim(),
-    createdAt: new Date().toISOString(),
-    templateId: template.id,
-    themeId: theme.id,
-    seed,
-    features: {
-      darkMode: input.features.darkMode,
-      tests: input.features.tests,
-      ci: input.features.ci,
-      docs: input.features.docs,
-      generativeBackground: input.features.generativeBackground,
-    },
-  };
-
-  const files: GeneratedFile[] = [
-    ...buildBaseFiles(manifest, theme),
-    ...templateFiles(template.id, manifest, theme),
-  ];
-
-  return { manifest, theme, files };
+export function composeProject(input: ProjectInput): ProjectManifest {
+  const template = getTemplate(input.template);
+  if (!template) throw new Error("Plantilla no disponible.");
+  const normalized = { ...input, name: input.name.trim(), description: input.description.trim(), author: input.author.trim() };
+  const hash = createHash("sha256").update(JSON.stringify(normalized)).digest("hex").slice(0, 16);
+  return { ...normalized, id: `proj_${hash}`, slug: slugify(normalized.name), templateName: template.name };
 }

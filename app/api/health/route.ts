@@ -1,10 +1,7 @@
-import { NextResponse } from 'next/server';
-import { TEMPLATES } from '@/lib/templates/registry';
+import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
 export function GET() {
-  return NextResponse.json({
-    status: 'ok',
-    version: '1.0.0',
-    templatesAvailable: TEMPLATES.length,
-  });
+  return NextResponse.json({ status: "ok", service: "azul-forge", version: "0.1.0" },
+    { headers: { "Cache-Control": "no-store" } });
 }
