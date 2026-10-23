@@ -39,14 +39,14 @@ const verifierScript = [
  * It detects accidental modifications, not authorship: the manifest is unsigned.
  */
 export function attachIntegrityFiles(files: GeneratedFile[]): GeneratedFile[] {
-  const metadataPaths = new Set(["forge-integrity.json", "tools/verify-integrity.mjs", "docs/integrity.md"]);
+  const metadataPaths = new Set(["forge-integrity.json", "tools/verify-integrity.mjs", "integrity.md"]);
   if (files.some((file) => metadataPaths.has(file.path))) {
     throw new Error("Generated file collides with integrity metadata");
   }
   const extras: GeneratedFile[] = [
     { path: "tools/verify-integrity.mjs", content: verifierScript, language: "javascript" },
     {
-      path: "docs/integrity.md",
+      path: "integrity.md",
       content: "# Comprobar el ZIP de AZUL FORGE\n\n" +
         "Tras extraerlo, ejecuta node tools/verify-integrity.mjs antes de editar el proyecto. " +
         "Compara SHA-256 y tamaño de los archivos originales, sin instalación ni red.\n\n" +
