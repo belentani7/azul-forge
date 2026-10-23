@@ -88,6 +88,25 @@ describe("generación de código y controles", () => {
     expect(html).not.toContain("src=\"http");
   });
 
+  it("rechaza nombres incompatibles con Windows y colisiones sin distinguir mayúsculas", async () => {
+    const mk = (path: string) => ({ path, content: "contenido", language: "text" });
+    for (const invalid of [
+      "AUX.txt", "CON", "prn.md", "nested/lpt9.log", "nested/COM1",
+      "trailing.", "folder./test.txt", "dir/..", "dir/."
+    ]) {
+      await expect(buildZip([mk(invalid)], "museo-azul")).rejects.toThrow();
+    }
+    await expect(
+      buildZip([mk("src/Component.tsx"), mk("src/component.tsx")], "museo-azul")
+    ).rejects.toThrow(/repetida/);
+
+    const archive = await JSZip.loadAsync(
+      await buildZip([mk("src/console.ts"), mk("src/lpt10.ts")], "museo-azul")
+    );
+    expect(archive.file("museo-azul/src/console.ts")).not.toBeNull();
+    expect(archive.file("museo-azul/src/lpt10.ts")).not.toBeNull();
+  });
+
   it("empaqueta exactamente los archivos bajo un único directorio seguro", async () => {
     const project = createProject(validInput);
     const archive = await JSZip.loadAsync(await buildZip(project.files, project.manifest.slug));
