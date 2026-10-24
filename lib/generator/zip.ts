@@ -12,16 +12,26 @@ function portableSegment(segment: string): boolean {
 }
 
 export async function buildZip(files: GeneratedFile[], slug: string): Promise<Buffer> {
-  if (!safeSlug.test(slug)) throw new Error("Nombre de proyecto no válido para exportar.");
+  if (!safeSlug.test(slug) || reservedDevice.test(slug)) throw new Error("Nombre de proyecto no válido para exportar.");
   if (files.length > 80) throw new Error("Demasiados archivos para exportar.");
   const zip = new JSZip();
   let bytes = 0;
   const paths = new Set<string>();
+  const directories = new Set<string>();
   for (const file of files) {
     const segments = file.path.split("/");
-    const normalizedPath = file.path.toLowerCase();
-    if (!segments.every(portableSegment) || paths.has(normalizedPath)) {
+    const normalizedSegments = segments.map((segment) => segment.toLowerCase());
+    const normalizedPath = normalizedSegments.join("/");
+    if (!segments.every(portableSegment) || paths.has(normalizedPath) || directories.has(normalizedPath)) {
       throw new Error("Ruta de archivo no válida, incompatible o repetida.");
+    }
+    // A file must not also be a directory, even on case-insensitive filesystems.
+    for (let depth = 1; depth < normalizedSegments.length; depth++) {
+      const directory = normalizedSegments.slice(0, depth).join("/");
+      if (paths.has(directory)) {
+        throw new Error("Ruta de archivo incompatible con un directorio.");
+      }
+      directories.add(directory);
     }
     paths.add(normalizedPath);
     bytes += Buffer.byteLength(file.content, "utf8");
