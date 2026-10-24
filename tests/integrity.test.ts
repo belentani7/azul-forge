@@ -69,7 +69,7 @@ describe("offline generated-project integrity", () => {
         expect(result.status).not.toBe(0);
         expect(result.stderr).toContain("Unsafe integrity-manifest path");
       }
-      const originalPath = original.files[0].path as string;
+      const originalPath = original.files.find((item: { path: string }) => /[a-z]/.test(item.path))!.path as string;
       const duplicate = { ...original, files: [...original.files, { ...original.files[0], path: originalPath.toUpperCase() }] };
       writeFileSync(manifestPath, JSON.stringify(duplicate));
       const result = spawnSync(process.execPath, [script], { cwd: root, encoding: "utf8" });
