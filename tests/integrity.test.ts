@@ -49,6 +49,36 @@ describe("offline generated-project integrity", () => {
     }
   });
 
+
+  it("rejects case-folded duplicates and reserved paths in the offline verifier", () => {
+    const files = createProject(validInput).files;
+    const root = mkdtempSync(join(tmpdir(), "azul-forge-paths-"));
+    try {
+      for (const file of files) {
+        const location = join(root, ...file.path.split("/"));
+        mkdirSync(dirname(location), { recursive: true });
+        writeFileSync(location, file.content, "utf8");
+      }
+      const manifestPath = join(root, "forge-integrity.json");
+      const original = JSON.parse(files.find(file => file.path === "forge-integrity.json")!.content);
+      const script = join(root, "tools", "verify-integrity.mjs");
+      for (const badPath of ["CON.txt", "app/page.tsx."]) {
+        const altered = { ...original, files: [...original.files, { ...original.files[0], path: badPath }] };
+        writeFileSync(manifestPath, JSON.stringify(altered));
+        const result = spawnSync(process.execPath, [script], { cwd: root, encoding: "utf8" });
+        expect(result.status).not.toBe(0);
+        expect(result.stderr).toContain("Unsafe integrity-manifest path");
+      }
+      const originalPath = original.files[0].path as string;
+      const duplicate = { ...original, files: [...original.files, { ...original.files[0], path: originalPath.toUpperCase() }] };
+      writeFileSync(manifestPath, JSON.stringify(duplicate));
+      const result = spawnSync(process.execPath, [script], { cwd: root, encoding: "utf8" });
+      expect(result.status).not.toBe(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("does not introduce optional docs or tests directories when disabled", () => {
     const project = createProject({
       ...validInput,
