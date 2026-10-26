@@ -10,9 +10,11 @@ const verifierScript = [
   '',
   'const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");',
   'const manifest = JSON.parse(readFileSync(resolve(root, "forge-integrity.json"), "utf8"));',
-  'if (manifest.schema !== "azul-forge-integrity-v1" || !Array.isArray(manifest.files)) {',
+  'if (manifest.schema !== "azul-forge-integrity-v1" || manifest.algorithm !== "sha256" ||',
+  '    manifest.signed !== false || !Array.isArray(manifest.files) || manifest.files.length < 2) {',
   '  throw new Error("Unsupported project integrity manifest");',
   '}',
+  'const requiredPaths = new Set(["tools/verify-integrity.mjs", "integrity.md"]);',
   'const checked = new Set();',
   'const portablePaths = new Set();',
   'for (const item of manifest.files) {',
@@ -27,6 +29,7 @@ const verifierScript = [
   '  portablePaths.add(portable);',
   '  if (checked.has(item.path)) throw new Error("Duplicate manifest path");',
   '  checked.add(item.path);',
+  '  requiredPaths.delete(item.path);',
   '  const target = resolve(root, ...item.path.split("/"));',
   '  if (!target.startsWith(root + sep)) throw new Error("Path escapes exported project");',
   '  // Reject symlinked parent directories, not only a symlink at the final file.',
@@ -44,6 +47,7 @@ const verifierScript = [
   '    throw new Error("Integrity mismatch: " + item.path);',
   '  }',
   '}',
+  'if (requiredPaths.size) throw new Error("Integrity manifest is missing required metadata files");',
   'process.stdout.write("Verified " + checked.size + " original files (SHA-256).\\n");',
 ].join("\n") + "\n";
 
