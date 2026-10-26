@@ -50,6 +50,38 @@ describe("offline generated-project integrity", () => {
   });
 
 
+  it("rejects contradictory integrity metadata and incomplete inventories", () => {
+    const files = createProject(validInput).files;
+    const root = mkdtempSync(join(tmpdir(), "azul-forge-metadata-"));
+    try {
+      for (const file of files) {
+        const location = join(root, ...file.path.split("/"));
+        mkdirSync(dirname(location), { recursive: true });
+        writeFileSync(location, file.content, "utf8");
+      }
+      const manifestPath = join(root, "forge-integrity.json");
+      const original = JSON.parse(files.find((file) => file.path === "forge-integrity.json")!.content);
+      const script = join(root, "tools", "verify-integrity.mjs");
+      const cases = [
+        { manifest: { ...original, algorithm: "md5" }, error: "Unsupported project integrity manifest" },
+        { manifest: { ...original, signed: true }, error: "Unsupported project integrity manifest" },
+        { manifest: { ...original, files: [] }, error: "Unsupported project integrity manifest" },
+        {
+          manifest: { ...original, files: original.files.filter((item: { path: string }) => item.path !== "integrity.md") },
+          error: "Integrity manifest is missing required metadata files",
+        },
+      ];
+      for (const { manifest, error } of cases) {
+        writeFileSync(manifestPath, JSON.stringify(manifest), "utf8");
+        const result = spawnSync(process.execPath, [script], { cwd: root, encoding: "utf8" });
+        expect(result.status).not.toBe(0);
+        expect(result.stderr).toContain(error);
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("rejects case-folded duplicates and reserved paths in the offline verifier", () => {
     const files = createProject(validInput).files;
     const root = mkdtempSync(join(tmpdir(), "azul-forge-paths-"));
