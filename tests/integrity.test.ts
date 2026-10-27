@@ -112,6 +112,35 @@ describe("offline generated-project integrity", () => {
     }
   });
 
+  it("rejects extra files and directories absent from the exported manifest", () => {
+    const files = createProject(validInput).files;
+    const root = mkdtempSync(join(tmpdir(), "azul-forge-inventory-"));
+    try {
+      for (const file of files) {
+        const location = join(root, ...file.path.split("/"));
+        mkdirSync(dirname(location), { recursive: true });
+        writeFileSync(location, file.content, "utf8");
+      }
+      const script = join(root, "tools", "verify-integrity.mjs");
+      const clean = spawnSync(process.execPath, [script], { cwd: root, encoding: "utf8" });
+      expect(clean.status, clean.stderr).toBe(0);
+
+      const extraFile = join(root, "app", "hidden.tsx");
+      writeFileSync(extraFile, "unexpected code", "utf8");
+      const injected = spawnSync(process.execPath, [script], { cwd: root, encoding: "utf8" });
+      expect(injected.status).not.toBe(0);
+      expect(injected.stderr).toContain("Unlisted file: app/hidden.tsx");
+      rmSync(extraFile);
+
+      mkdirSync(join(root, "app", "empty-unlisted"));
+      const extraDirectory = spawnSync(process.execPath, [script], { cwd: root, encoding: "utf8" });
+      expect(extraDirectory.status).not.toBe(0);
+      expect(extraDirectory.stderr).toContain("Unlisted directory: app/empty-unlisted");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("does not introduce optional docs or tests directories when disabled", () => {
     const project = createProject({
       ...validInput,

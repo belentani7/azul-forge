@@ -4,7 +4,7 @@ import type { GeneratedFile } from "./types";
 // This script runs inside the ZIP without npm install or network.
 const verifierScript = [
   'import { createHash } from "node:crypto";',
-  'import { lstatSync, readFileSync } from "node:fs";',
+  'import { lstatSync, readFileSync, readdirSync } from "node:fs";',
   'import { dirname, resolve, sep } from "node:path";',
   'import { fileURLToPath } from "node:url";',
   '',
@@ -48,6 +48,27 @@ const verifierScript = [
   '  }',
   '}',
   'if (requiredPaths.size) throw new Error("Integrity manifest is missing required metadata files");',
+  '// Detect extra files and directories, not only changes to listed file hashes.',
+  'const expectedDirectories = new Set();',
+  'for (const path of [...checked, "forge-integrity.json"]) {',
+  '  const segments = path.split("/");',
+  '  for (let depth = 1; depth < segments.length; depth++) {',
+  '    expectedDirectories.add(segments.slice(0, depth).join("/"));',
+  '  }',
+  '}',
+  'function verifyInventory(directory, relative = "") {',
+  '  for (const entry of readdirSync(directory, { withFileTypes: true })) {',
+  '    const path = relative ? relative + "/" + entry.name : entry.name;',
+  '    if (entry.isSymbolicLink()) throw new Error("Unexpected symbolic link: " + path);',
+  '    if (entry.isDirectory()) {',
+  '      if (!expectedDirectories.has(path)) throw new Error("Unlisted directory: " + path);',
+  '      verifyInventory(resolve(directory, entry.name), path);',
+  '    } else if (!entry.isFile() || (path !== "forge-integrity.json" && !checked.has(path))) {',
+  '      throw new Error("Unlisted file: " + path);',
+  '    }',
+  '  }',
+  '}',
+  'verifyInventory(root);',
   'process.stdout.write("Verified " + checked.size + " original files (SHA-256).\\n");',
 ].join("\n") + "\n";
 
@@ -65,7 +86,7 @@ export function attachIntegrityFiles(files: GeneratedFile[]): GeneratedFile[] {
     {
       path: "integrity.md",
       content: "# Comprobar el ZIP de AZUL FORGE\n\n" +
-        "Tras extraerlo, ejecuta node tools/verify-integrity.mjs antes de editar el proyecto. " +
+        "Tras extraerlo, ejecuta node tools/verify-integrity.mjs antes de instalar dependencias, generar archivos o editar el proyecto. " +
         "Compara SHA-256 y tamaño de los archivos originales, sin instalación ni red.\n\n" +
         "El manifiesto forge-integrity.json no está firmado: permite detectar cambios " +
         "accidentales, pero no demuestra autoría ni evita que un atacante sustituya también el manifiesto. " +
