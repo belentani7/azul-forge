@@ -7,6 +7,7 @@ Un estudio local-first que convierte una configuración creativa en **código Ne
 - Tres bases distintas: **portfolio artístico**, **galería visual** y **tablero creativo**.
 - Configuración de identidad, paleta, modo claro/oscuro y módulos opcionales de tests, CI y documentación.
 - Generación y validación en el servidor; explorador de archivos, vista de diseño aislada y exportación ZIP.
+- Cada ZIP incorpora `forge-integrity.json` con huellas SHA-256 de todos los archivos originales, y `tools/verify-integrity.mjs` para comprobar el paquete sin instalar dependencias. Detecta modificaciones accidentales; no es una firma ni prueba la autoría.
 - Cada ZIP incluye `package-lock.json`, rutas `/api/health` y `/api/content`, instrucciones y un proyecto instalable con `npm ci`. El tablero permite crear, completar y borrar tareas guardadas en **localStorage**, sin pretender que exista persistencia remota.
 - Las colecciones comienzan vacías. No se atribuyen obras, clientes ni estadísticas ficticias.
 

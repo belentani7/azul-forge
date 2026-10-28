@@ -88,6 +88,39 @@ describe("generación de código y controles", () => {
     expect(html).not.toContain("src=\"http");
   });
 
+  it("rechaza rutas ZIP no portables, incluidas raíces Windows reservadas", async () => {
+    const mk = (path: string) => ({ path, content: "test", language: "text" });
+    for (const path of [
+      "AUX.txt", "CON", "prn.md", "nested/lpt9.log", "nested/COM1",
+      "trailing.", "folder./file.txt", "dir/..", "dir/."
+    ]) {
+      await expect(buildZip([mk(path)], "museo-azul")).rejects.toThrow();
+    }
+    for (const slug of ["con", "nul", "lpt9"]) {
+      await expect(buildZip([mk("README.md")], slug)).rejects.toThrow();
+    }
+    await expect(buildZip([
+      mk("src/Component.tsx"), mk("src/component.tsx")
+    ], "museo-azul")).rejects.toThrow(/repetida/);
+  });
+
+  it("rechaza colisiones entre archivos y directorios en cualquier orden", async () => {
+    const mk = (path: string) => ({ path, content: "test", language: "text" });
+    for (const paths of [
+      ["assets", "assets/logo.svg"],
+      ["assets/logo.svg", "assets"],
+      ["SRC", "src/index.ts"],
+      ["src/index.ts", "SRC"],
+    ]) {
+      await expect(buildZip(paths.map(mk), "museo-azul")).rejects.toThrow(/Ruta de archivo/);
+    }
+    const portable = await JSZip.loadAsync(await buildZip([
+      mk("src/console.ts"), mk("src/lpt10.ts")
+    ], "museo-azul"));
+    expect(portable.file("museo-azul/src/console.ts")).not.toBeNull();
+    expect(portable.file("museo-azul/src/lpt10.ts")).not.toBeNull();
+  });
+
   it("empaqueta exactamente los archivos bajo un único directorio seguro", async () => {
     const project = createProject(validInput);
     const archive = await JSZip.loadAsync(await buildZip(project.files, project.manifest.slug));

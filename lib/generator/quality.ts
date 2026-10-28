@@ -16,6 +16,7 @@ export function evaluateQuality(manifest: ProjectManifest, files: GeneratedFile[
   add("identity", "Identidad definida", "Nombre, descripción y slug presentes.", !!manifest.name && manifest.description.length >= 12 && !!manifest.slug);
   add("source", "Interfaz incluida", "Página, layout y estilos generados.", ["app/page.tsx", "app/layout.tsx", "app/globals.css"].every(has), 2);
   add("backend", "Backend incluido", "Rutas de salud y contenido disponibles.", has("app/api/health/route.ts") && has("app/api/content/route.ts"), 2);
+  add("integrity", "Verificación de ZIP incluida", "El paquete contiene hashes SHA-256 y un verificador offline; no es una firma digital.", has("forge-integrity.json") && has("tools/verify-integrity.mjs"));
   add("metadata", "Metadatos presentes", "Título y descripción en el layout.", (contents.get("app/layout.tsx") ?? "").includes("metadata") && has("public/favicon.svg"));
   add("readme", "Guía de uso", "README con instrucciones del proyecto.", (contents.get("README.md") ?? "").includes(manifest.name));
   add("license", "Licencia incluida", "Archivo LICENSE incluido; revisa la autoría antes de publicar.", has("LICENSE"));
