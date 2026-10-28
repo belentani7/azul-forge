@@ -66,6 +66,8 @@ describe("offline generated-project integrity", () => {
         { manifest: { ...original, algorithm: "md5" }, error: "Unsupported project integrity manifest" },
         { manifest: { ...original, signed: true }, error: "Unsupported project integrity manifest" },
         { manifest: { ...original, files: [] }, error: "Unsupported project integrity manifest" },
+        { manifest: null, error: "Unsupported project integrity manifest" },
+        { manifest: { ...original, files: [null, ...original.files] }, error: "Unsafe integrity-manifest path" },
         {
           manifest: { ...original, files: original.files.filter((item: { path: string }) => item.path !== "integrity.md") },
           error: "Integrity manifest is missing required metadata files",
